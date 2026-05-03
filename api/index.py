@@ -111,4 +111,4 @@ def optimize():
         return jsonify({'error': f'服务异常：{str(e)}'}), 500
 
 
-handler = app.wsgi_app
+
