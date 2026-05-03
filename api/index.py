@@ -109,3 +109,6 @@ def optimize():
         return jsonify({'error': '请求超时，请稍后重试'}), 504
     except Exception as e:
         return jsonify({'error': f'服务异常：{str(e)}'}), 500
+
+
+handler = app.wsgi_app
