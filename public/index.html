@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 图片生成器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1E293B',
+            secondary: '#334155',
+            cta: '#22C55E',
+            'cta-hover': '#16A34A',
+            dark: '#0F172A',
+            'dark-card': '#1E293B',
+            'dark-border': '#334155',
+            light: '#F8FAFC',
+            muted: '#94A3B8',
+          },
+          fontFamily: {
+            display: ['Fredoka', 'sans-serif'],
+            body: ['Nunito', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Nunito', sans-serif; }
+    h1, h2, h3, .font-display { font-family: 'Fredoka', sans-serif; }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .shimmer {
+      background: linear-gradient(90deg, #1E293B 25%, #334155 50%, #1E293B 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(34, 197, 94, 0.6); }
+    }
+    .generating { animation: pulse-glow 2s ease-in-out infinite; }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    .float { animation: float 3s ease-in-out infinite; }
+
+    .size-option input:checked + label {
+      border-color: #22C55E;
+      background-color: rgba(34, 197, 94, 0.1);
+      color: #22C55E;
+    }
+    .style-option input:checked + label {
+      border-color: #22C55E;
+      background-color: rgba(34, 197, 94, 0.1);
+      color: #22C55E;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .shimmer, .generating, .float { animation: none; }
+    }
+  </style>
+</head>
+<body class="bg-dark min-h-screen text-light">
+
+  <div id="error-toast" class="hidden opacity-0 fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-6 py-3 rounded-xl shadow-2xl font-body text-sm transition-opacity duration-300 backdrop-blur-sm flex items-center gap-2">
+    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+    </svg>
+    <span id="error-message"></span>
+  </div>
+
+  <header class="pt-10 pb-6 text-center">
+    <div class="inline-flex items-center gap-3 mb-3">
+      <svg class="w-10 h-10 text-cta float" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+      </svg>
+      <h1 class="text-4xl md:text-5xl font-display font-bold text-light">
+        AI <span class="text-cta">图片生成器</span>
+      </h1>
+    </div>
+    <p class="text-muted text-lg font-body">输入描述，让 AI 为你创造无限可能</p>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 pb-16">
+
+    <section class="bg-dark-card border border-dark-border rounded-2xl p-6 md:p-8 mb-8 shadow-2xl">
+      <label for="prompt-input" class="block text-lg font-display font-semibold mb-3 text-light">描述你想要的图片</label>
+      <textarea
+        id="prompt-input"
+        rows="4"
+        class="w-full bg-dark border border-dark-border rounded-xl px-4 py-3 text-light placeholder-muted focus:outline-none focus:border-cta focus:ring-1 focus:ring-cta transition-colors duration-200 resize-none text-base font-body"
+        placeholder="例如：一只穿着宇航服的猫咪，站在月球表面，背景是蔚蓝色的地球..."
+      ></textarea>
+
+      <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <span class="block text-sm font-display font-semibold mb-3 text-muted uppercase tracking-wider">图片尺寸</span>
+          <div class="flex gap-3">
+            <div class="size-option flex-1">
+              <input type="radio" name="size" id="size-1" value="1024x1024" class="sr-only" checked>
+              <label for="size-1" class="cursor-pointer block text-center border border-dark-border rounded-xl py-3 px-2 transition-colors duration-200 hover:border-cta/50">
+                <span class="block text-sm font-semibold">1:1</span>
+                <span class="block text-xs text-muted mt-0.5">1024×1024</span>
+              </label>
+            </div>
+            <div class="size-option flex-1">
+              <input type="radio" name="size" id="size-2" value="768x1344" class="sr-only">
+              <label for="size-2" class="cursor-pointer block text-center border border-dark-border rounded-xl py-3 px-2 transition-colors duration-200 hover:border-cta/50">
+                <span class="block text-sm font-semibold">竖版</span>
+                <span class="block text-xs text-muted mt-0.5">768×1344</span>
+              </label>
+            </div>
+            <div class="size-option flex-1">
+              <input type="radio" name="size" id="size-3" value="1344x768" class="sr-only">
+              <label for="size-3" class="cursor-pointer block text-center border border-dark-border rounded-xl py-3 px-2 transition-colors duration-200 hover:border-cta/50">
+                <span class="block text-sm font-semibold">横版</span>
+                <span class="block text-xs text-muted mt-0.5">1344×768</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <span class="block text-sm font-display font-semibold mb-3 text-muted uppercase tracking-wider">图片风格</span>
+          <div class="flex gap-3">
+            <div class="style-option flex-1">
+              <input type="radio" name="style" id="style-vivid" value="vivid" class="sr-only" checked>
+              <label for="style-vivid" class="cursor-pointer block text-center border border-dark-border rounded-xl py-3 px-2 transition-colors duration-200 hover:border-cta/50">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
+                </svg>
+                <span class="block text-sm font-semibold">生动</span>
+                <span class="block text-xs text-muted mt-0.5">Vivid</span>
+              </label>
+            </div>
+            <div class="style-option flex-1">
+              <input type="radio" name="style" id="style-natural" value="natural" class="sr-only">
+              <label for="style-natural" class="cursor-pointer block text-center border border-dark-border rounded-xl py-3 px-2 transition-colors duration-200 hover:border-cta/50">
+                <svg class="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                </svg>
+                <span class="block text-sm font-semibold">自然</span>
+                <span class="block text-xs text-muted mt-0.5">Natural</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-col sm:flex-row gap-3">
+        <button
+          id="btn-optimize"
+          class="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-secondary hover:bg-primary border border-dark-border text-light font-display font-semibold py-3 px-6 rounded-xl transition-colors duration-200"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          优化提示词
+        </button>
+        <button
+          id="btn-generate"
+          class="cursor-pointer flex-1 flex items-center justify-center gap-2 bg-cta hover:bg-cta-hover text-dark font-display font-bold py-3 px-6 rounded-xl transition-colors duration-200 shadow-lg shadow-cta/20"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+          </svg>
+          生成图片
+        </button>
+      </div>
+    </section>
+
+    <section id="result-section" class="hidden">
+      <div class="bg-dark-card border border-dark-border rounded-2xl p-6 md:p-8 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-display font-semibold text-light">生成结果</h2>
+          <button
+            id="btn-download"
+            class="cursor-pointer flex items-center gap-2 text-cta hover:text-cta-hover font-semibold text-sm transition-colors duration-200"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            下载图片
+          </button>
+        </div>
+        <div id="image-container" class="rounded-xl overflow-hidden bg-dark border border-dark-border flex items-center justify-center min-h-[300px]">
+          <div id="loading-state" class="hidden text-center py-16">
+            <div class="shimmer w-48 h-48 rounded-xl mx-auto mb-4"></div>
+            <p class="text-muted font-body">AI 正在创作中，请稍候...</p>
+          </div>
+          <img id="result-image" class="hidden w-full h-auto rounded-xl" alt="AI 生成的图片">
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    const promptInput = document.getElementById('prompt-input');
+    const btnOptimize = document.getElementById('btn-optimize');
+    const btnGenerate = document.getElementById('btn-generate');
+    const resultSection = document.getElementById('result-section');
+    const imageContainer = document.getElementById('image-container');
+    const loadingState = document.getElementById('loading-state');
+    const resultImage = document.getElementById('result-image');
+    const btnDownload = document.getElementById('btn-download');
+    const errorToast = document.getElementById('error-toast');
+    const errorMessage = document.getElementById('error-message');
+
+    const OPTIMIZE_ICON = `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>`;
+    const GENERATE_ICON = `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>`;
+    const SPINNER = `<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;
+
+    function getSelectedSize() {
+      return document.querySelector('input[name="size"]:checked').value;
+    }
+
+    function getSelectedStyle() {
+      return document.querySelector('input[name="style"]:checked').value;
+    }
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorToast.classList.remove('hidden', 'opacity-0');
+      errorToast.classList.add('opacity-100');
+      setTimeout(() => {
+        errorToast.classList.remove('opacity-100');
+        errorToast.classList.add('opacity-0');
+        setTimeout(() => errorToast.classList.add('hidden'), 300);
+      }, 4000);
+    }
+
+    function validatePrompt() {
+      const prompt = promptInput.value.trim();
+      if (!prompt) {
+        promptInput.focus();
+        promptInput.classList.add('border-red-500');
+        setTimeout(() => promptInput.classList.remove('border-red-500'), 2000);
+        return false;
+      }
+      return true;
+    }
+
+    btnOptimize.addEventListener('click', async () => {
+      if (!validatePrompt()) return;
+
+      btnOptimize.disabled = true;
+      btnOptimize.innerHTML = `${SPINNER} 优化中...`;
+
+      try {
+        const response = await fetch('/api/optimize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: promptInput.value.trim() })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          showError(data.error || '优化失败，请重试');
+          return;
+        }
+
+        promptInput.value = data.optimized_prompt;
+      } catch (err) {
+        showError('网络错误，请检查后端服务是否启动');
+      } finally {
+        btnOptimize.disabled = false;
+        btnOptimize.innerHTML = `${OPTIMIZE_ICON} 优化提示词`;
+      }
+    });
+
+    btnGenerate.addEventListener('click', async () => {
+      if (!validatePrompt()) return;
+
+      resultSection.classList.remove('hidden');
+      loadingState.classList.remove('hidden');
+      resultImage.classList.add('hidden');
+      imageContainer.classList.add('generating');
+
+      btnGenerate.disabled = true;
+      btnGenerate.innerHTML = `${SPINNER} 生成中...`;
+
+      resultSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: promptInput.value.trim(),
+            size: getSelectedSize(),
+            style: getSelectedStyle()
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          showError(data.error || '生成失败，请重试');
+          loadingState.classList.add('hidden');
+          imageContainer.classList.remove('generating');
+          return;
+        }
+
+        if (data.data && data.data.length > 0) {
+          const imageUrl = data.data[0].url;
+          resultImage.src = imageUrl;
+          resultImage.onload = () => {
+            loadingState.classList.add('hidden');
+            resultImage.classList.remove('hidden');
+            imageContainer.classList.remove('generating');
+          };
+          resultImage.onerror = () => {
+            showError('图片加载失败');
+            loadingState.classList.add('hidden');
+            imageContainer.classList.remove('generating');
+          };
+        } else {
+          showError('未返回图片，请重试');
+          loadingState.classList.add('hidden');
+          imageContainer.classList.remove('generating');
+        }
+      } catch (err) {
+        showError('网络错误，请检查后端服务是否启动');
+        loadingState.classList.add('hidden');
+        imageContainer.classList.remove('generating');
+      } finally {
+        btnGenerate.disabled = false;
+        btnGenerate.innerHTML = `${GENERATE_ICON} 生成图片`;
+      }
+    });
+
+    btnDownload.addEventListener('click', () => {
+      if (!resultImage.src) return;
+      const link = document.createElement('a');
+      link.href = resultImage.src;
+      link.download = 'ai-generated-image.png';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+  </script>
+
+</body>
+</html>
